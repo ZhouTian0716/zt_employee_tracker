@@ -1,17 +1,30 @@
-//Dependencies
+// NPM Dependencies
 const mysql = require('mysql');
 const inquirer = require('inquirer');
 const logo = require('asciiart-logo');
 require('console.table');
+const colors = require('colors');
 
 // Variables
-var departmentChoices=["A","B"];
+var departmentChoices=[];
+var roleChoices=[];
+var employeeChoices=[];
 
 //Arrays to be used
 const todos = ["1.1: View Current Departments", "1.2: View Current Roles", "1.3: View Current Employees",
-"2.1: Add Departments", "2.2: Add Roles", "2.3: Add Employees", "3: Update Employees","4: Quit"
-];
-const departments = ["Sales", "Engineering", "Finance", "Legal", "Administation"];
+"2.1: Add Departments", "2.2: Add Roles", "2.3: Add Employees", "3: Update Employees","4: Quit"];
+
+const departmentsOptions = ["Executives", "Sales", "Engineering", "Finance", "Legal", "Administation"];
+
+const rolesOptions = ["Director", "General Manager", "Sales Manager", "Sales Representative",
+"Engineering Manager", "Software Engineer", "Finance Manager", "Accountant", "Legal Manager",
+"Contract Administrator", "HR Manager", "Office Administrator"];
+
+const salaryOptions = [200000, 150000, 120000, 100000, 80000, 70000, 60000];
+
+const employeeOptions = ["Ross Giorgio", "Belinda D'Apice", "Brenton Cole", "Sarah Hamid",
+"David Impey", "Zhou Tian", "Martin Giorgio", "Darren Qi", "David Monteleone",
+"Adam Weaver", "Emma Krauss", "Eric Xia"];
 
 // Starting logo
 console.log(logo({ name: 'Employee Tracker', logoColor: 'bold-yellow' }).render());
@@ -23,25 +36,32 @@ const connection = mysql.createConnection({
   database: 'company_DB',
 });
 
-// Start by prompting options for user
+// Start by prompting options for user 
 const start = async () => {
+  // To start with initial seed data if exist
+  departmentChoices = await getDepartmentRest();
+  roleChoices = await getRoleRest();
+  employeeChoices = await getEmployeeRest();
   let answer = await inquirer.prompt({ name: 'todo', type: 'list', message: 'What would you like to do?', choices: todos,});
   if (answer.todo === todos[0]) { viewDepartments() } 
   else if (answer.todo === todos[1]) { viewRoles() } 
   else if (answer.todo === todos[2]) { viewEmployees() } 
   else if (answer.todo === todos[3]) { addDepartment() } 
+  else if (answer.todo === todos[4]) { addRole() }
+  else if (answer.todo === todos[5]) { addEmployee() }
+  //else if (answer.todo === todos[6]) { updateEmployeeRole() }
   else if (answer.todo === todos[7]) { connection.end(); return }   
 };
 
+// Viewing Departments, Roles and Employees in current Database
 const viewDepartments = () => {
-  connection.query('SELECT * FROM company_DB.department', (err, res) => {
+  connection.query('SELECT * FROM company_DB.departments', (err, res) => {
     if (err) throw err;
     console.log("\n");
     console.table(res);
     start();
   })
 };
-
 const viewRoles = () => {
   connection.query('SELECT * FROM company_DB.roles', (err, res) => {
     if (err) throw err;
@@ -50,7 +70,6 @@ const viewRoles = () => {
     start();
   })
 };
-
 const viewEmployees = () => {
   connection.query('SELECT * FROM company_DB.employee', (err, res) => {
     if (err) throw err;
@@ -60,43 +79,185 @@ const viewEmployees = () => {
   })
 };
 
-const getRest = () => {
+// Functions to initialize this app by loading existing data.
+const getDepartmentRest = () => {
   var currentDepart = [];
   return new Promise((resolve,reject) => {
-    connection.query('SELECT name FROM company_DB.department', (err, res) => {
+    connection.query('SELECT department FROM company_DB.departments', (err, res) => {
       if (err) reject(err);
       for (let i=0; i<res.length; i++){
-        currentDepart.push(res[i].name)
+        currentDepart.push(res[i].department)
       };
-      departmentChoices = departments;
+      departmentChoices = departmentsOptions;
       departmentChoices = departmentChoices.filter((item) => !currentDepart.includes(item));
-      resolve(departmentChoices);
+      resolve(departmentChoices); // array like this ["Executives", "Sales", "Engineering", "Finance", "Legal", "Administation"];
     });
   });
-  
 }
 
+const getRoleRest = () => {
+  var currentRoles = [];
+  return new Promise((resolve,reject) => {
+    connection.query('SELECT title FROM company_DB.roles', (err, res) => {
+      if (err) reject(err);
+      for (let i=0; i<res.length; i++){
+        currentRoles.push(res[i].title)
+      };
+      roleChoices = rolesOptions;
+      roleChoices = roleChoices.filter((item) => !currentRoles.includes(item));
+      resolve(roleChoices);
+    });
+  });
+}
+
+const getEmployeeRest = () => {
+  var currentEmployees = [];
+  //var currentFirstNames =[];
+  //var currentLastNames =[];
+  return new Promise((resolve,reject) => {
+    connection.query('SELECT first_name, last_name FROM company_DB.employee', (err, res) => {
+      if (err) reject(err);
+      for (let i=0; i<res.length; i++){
+        currentEmployees.push(res[i].first_name + " " + res[i].last_name)
+        //currentFirstNames.push(res[i].first_name);
+        //currentLastNames.push(res[i].last_name);
+      };
+      employeeChoices = employeeOptions;
+      employeeChoices = employeeChoices.filter((item) => !currentEmployees.includes(item));
+      resolve(employeeChoices);
+    });
+  });
+}
+
+
+// Adding Departments, Roles and Employees into current Database
 async function addDepartment() {
-  if ( departmentChoices.length > 1 ){
-    departmentChoices = await getRest();
+  if ( departmentChoices.length > 0 ){
+    departmentChoices = await getDepartmentRest();
     let answer = await inquirer.prompt({ 
       name: 'new', type: 'list', 
       message: 'Which Department do you need to add?', 
       choices: departmentChoices
     });
     connection.query(
-      'INSERT INTO department SET ?', { name: answer.new },
+      'INSERT INTO departments SET ?', { department: answer.new },
       (err) => {
         if (err) throw err;
-        console.log('New department was added successfully!');
+        console.log('\nNew department was added successfully!\n'.green);
         start();
       }
     )
   }
-  else{console.log('\nDepartments all set already!\n');start()}
+  else{console.log('\nDepartments all set already!\n'.red);start()}
+}
+
+async function addRole() {
+  if ( roleChoices.length > 0 ){
+    roleChoices = await getRoleRest();
+    var departmentExist = departmentsOptions.filter((item) => !departmentChoices.includes(item));
+    let answer = await inquirer.prompt([{ 
+      name: 'title', type: 'list', 
+      message: 'Which Role do you need to add?', 
+      choices: roleChoices
+    },{ 
+      name: 'salary', type: 'list', 
+      message: 'How much salary for this role?', 
+      choices: salaryOptions
+    },{ 
+      name: 'department_id', type: 'list', 
+      message: 'Please chose one of the existing department to add this role, chose RETURN to add new department if needed.', 
+      choices: [...departmentExist, "RETURN"]
+    }
+    ]);
+    // Go back to create department from here.
+    if (answer.department_id === "RETURN"){
+      start();
+    }
+    else{connection.query(
+      'INSERT INTO roles SET ?', 
+      { 
+        title: answer.title,
+        salary: answer.salary,
+        // Change department names to department ids
+        department_id: 1 + departmentExist.indexOf(answer.department_id)
+      },
+      (err) => {
+        if (err) throw err;
+        console.log('\nNew Role was added successfully!\n'.green);
+        start();
+      }
+    )}
+  }
+  else{console.log('\nRoles all set already!\n'.red);start()}
+}
+
+async function addEmployee() {
+  if ( employeeChoices.length > 0 ){
+    employeeChoices = await getEmployeeRest();
+    var roleExist = rolesOptions.filter((item) => !roleChoices.includes(item));
+    var employeeExist = employeeOptions.filter((item) => !employeeChoices.includes(item));
+    let answer = await inquirer.prompt([{ 
+      name: 'fullName', type: 'list', 
+      message: 'Which Employee do you need to add?', 
+      choices: employeeChoices
+    },{ 
+      name: 'role_id', type: 'list', 
+      message: 'Which role for this employee? Chose RETURN to add new role if needed.', 
+      choices: [...roleExist, "RETURN"]
+    },{ 
+      name: 'manager_id', type: 'list', 
+      message: 'Please chose one of the existing department to add this role, chose RETURN to add new department if needed.', 
+      choices: [...employeeExist, "RETURN"]
+    }
+    ]);
+    // Go back to create department from here.
+    if ( answer.role_id === "RETURN" || answer.manager_id === "RETURN"){
+      start();
+    }
+    else{connection.query(
+      'INSERT INTO roles SET ?', 
+      { 
+        first_name: answer.fullName.split(" ")[0],
+        last_name: answer.fullName.split(" ")[1],
+        role_id: 1 + roleExist.indexOf(answer.role_id),
+        manager_id: 1 + employeeExist.indexOf(answer.manager_id)
+      },
+      (err) => {
+        if (err) throw err;
+        console.log('\nNew Employee was added successfully!\n'.green);
+        start();
+      }
+    )}
+  }
+  else{console.log('\nEmployees all set already!\n'.red);start()}
 }
 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 start();
+
+
+// validate(value) {
+//   if (isNaN(value) === false) {
+//     if(value < 1000000){return true}
+//     return false;
+//   }
+//   return false;
+// }
