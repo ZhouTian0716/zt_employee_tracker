@@ -10,8 +10,8 @@ SO THAT I can quickly update and review the current team of my company.
 ## Starting Steps
 * Remember to change the MYSQL user name and password in  [index.js](./index.js) to match your default setting.
 ![MYSQL Setting](./assets/img/3.JPG)
-* Open MYSQL , run [employee.sql](./db/employee.sql) in db folder
-* Open MYSQL , run [seed.sql](./db/seed.sql) in db folder
+* Open MYSQL workbench, run [employee.sql](./db/employee.sql) in db folder
+* Open MYSQL workbench, run [seed.sql](./db/seed.sql) in db folder
 * Remember " npm install " from terminal / cmd
 * " npm start " from terminal / cmd to run this application
 
