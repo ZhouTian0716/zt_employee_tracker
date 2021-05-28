@@ -11,7 +11,7 @@ var roleChoices=[];
 var employeeChoices=[];
 
 //Arrays to be used
-const todos = ["1.1: View Current Departments", "1.2: View Current Roles", "1.3: View Current Employees",
+const todos = ["1.1: View Current Departments (with Budget）", "1.2: View Current Roles", "1.3: View Current Employees",
 "2.1: Add Departments", "2.2: Add Roles", "2.3: Add Employees", "3: Update Employees","4: Quit"];
 
 const departmentsOptions = ["Executives", "Sales", "Engineering", "Finance", "Legal", "Administation"];
@@ -63,7 +63,11 @@ const viewDepartments = () => {
   })
 };
 const viewRoles = () => {
-  connection.query('SELECT * FROM company_DB.roles', (err, res) => {
+  var query = `
+  SELECT id_ro, title, salary, department 
+  FROM roles 
+  LEFT JOIN departments ON roles.department_id = departments.id_de`
+  connection.query( query, (err, res) => {
     if (err) throw err;
     console.log("\n");
     console.table(res);
@@ -71,7 +75,13 @@ const viewRoles = () => {
   })
 };
 const viewEmployees = () => {
-  connection.query('SELECT * FROM company_DB.employee', (err, res) => {
+  var query = `
+  SELECT T1.id, T1.first_name, T1.last_name, roles.title, roles.salary, departments.department, CONCAT(T2.first_name, '   ', T2.last_name) AS manager 
+  FROM employee T1 
+  LEFT JOIN roles ON T1.role_id = roles.id_ro 
+  LEFT JOIN departments ON roles.department_id = departments.id_de
+  LEFT JOIN employee T2 ON T1.manager_id = T2.id`
+  connection.query( query, (err, res) => {
     if (err) throw err;
     console.log("\n");
     console.table(res);
@@ -178,7 +188,7 @@ async function addRole() {
       { 
         title: answer.title,
         salary: answer.salary,
-        // Change department names to department ids
+        // Change department names (string type) to department ids (num type)
         department_id: 1 + departmentExist.indexOf(answer.department_id)
       },
       (err) => {
@@ -210,12 +220,12 @@ async function addEmployee() {
       choices: [...employeeExist, "RETURN"]
     }
     ]);
-    // Go back to create department from here.
+    // Go back to create role or employee as manager from here.
     if ( answer.role_id === "RETURN" || answer.manager_id === "RETURN"){
       start();
     }
     else{connection.query(
-      'INSERT INTO roles SET ?', 
+      'INSERT INTO employee SET ?', 
       { 
         first_name: answer.fullName.split(" ")[0],
         last_name: answer.fullName.split(" ")[1],
