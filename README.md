@@ -13,7 +13,7 @@ SO THAT I can quickly update and review the current team of my company.
 * Open MYSQL workbench, run [employee.sql](./db/employee.sql) in db folder
 * Open MYSQL workbench, run [seed.sql](./db/seed.sql) in db folder
 * Remember " npm install " from terminal / cmd
-* " npm start " from terminal / cmd to run this application
+* Run " npm start " from terminal / cmd to start this application
 
 ## Review
 
