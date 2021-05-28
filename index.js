@@ -11,8 +11,9 @@ var roleChoices=[];
 var employeeChoices=[];
 
 //Arrays to be used
-const todos = ["1.1: View Current Departments (with Budget）", "1.2: View Current Roles", "1.3: View Current Employees",
-"2.1: Add Departments", "2.2: Add Roles", "2.3: Add Employees", "3: Update Employees","4: Quit"];
+const todos = ["1.1: View Current Departments", "1.2: View Current Roles", "1.3: View Current Employees","1.4: View Current Employees (by manager)",
+"2.1: Add Departments", "2.2: Add Roles", "2.3: Add Employees", "3.1: Update Employee role", "3.2: Update Employee manager", 
+"4.1: Delete Employee", "5: Quit"];
 
 const departmentsOptions = ["Executives", "Sales", "Engineering", "Finance", "Legal", "Administation"];
 
@@ -46,11 +47,14 @@ const start = async () => {
   if (answer.todo === todos[0]) { viewDepartments() } 
   else if (answer.todo === todos[1]) { viewRoles() } 
   else if (answer.todo === todos[2]) { viewEmployees() } 
-  else if (answer.todo === todos[3]) { addDepartment() } 
-  else if (answer.todo === todos[4]) { addRole() }
-  else if (answer.todo === todos[5]) { addEmployee() }
-  //else if (answer.todo === todos[6]) { updateEmployeeRole() }
-  else if (answer.todo === todos[7]) { connection.end(); return }   
+  else if (answer.todo === todos[3]) { viewEmployeesManager() } 
+  else if (answer.todo === todos[4]) { addDepartment() } 
+  else if (answer.todo === todos[5]) { addRole() }
+  else if (answer.todo === todos[6]) { addEmployee() }
+  else if (answer.todo === todos[7]) { updateEmployeeRole() }
+  else if (answer.todo === todos[8]) { updateEmployeeManager() }
+  else if (answer.todo === todos[9]) { deleteEmployee() }
+  else if (answer.todo === todos[10]) { connection.end(); return }   
 };
 
 // Viewing Departments, Roles and Employees in current Database
@@ -80,6 +84,18 @@ const viewEmployees = () => {
   FROM employee T1 
   LEFT JOIN roles ON T1.role_id = roles.id_ro 
   LEFT JOIN departments ON roles.department_id = departments.id_de
+  LEFT JOIN employee T2 ON T1.manager_id = T2.id`
+  connection.query( query, (err, res) => {
+    if (err) throw err;
+    console.log("\n");
+    console.table(res);
+    start();
+  })
+};
+const viewEmployeesManager = () => {
+  var query = `
+  SELECT T1.id, T1.first_name, T1.last_name, CONCAT(T2.first_name, ' ', T2.last_name) AS manager 
+  FROM employee T1 
   LEFT JOIN employee T2 ON T1.manager_id = T2.id`
   connection.query( query, (err, res) => {
     if (err) throw err;
@@ -122,15 +138,11 @@ const getRoleRest = () => {
 
 const getEmployeeRest = () => {
   var currentEmployees = [];
-  //var currentFirstNames =[];
-  //var currentLastNames =[];
   return new Promise((resolve,reject) => {
     connection.query('SELECT first_name, last_name FROM company_DB.employee', (err, res) => {
       if (err) reject(err);
       for (let i=0; i<res.length; i++){
         currentEmployees.push(res[i].first_name + " " + res[i].last_name)
-        //currentFirstNames.push(res[i].first_name);
-        //currentLastNames.push(res[i].last_name);
       };
       employeeChoices = employeeOptions;
       employeeChoices = employeeChoices.filter((item) => !currentEmployees.includes(item));
@@ -138,7 +150,6 @@ const getEmployeeRest = () => {
     });
   });
 }
-
 
 // Adding Departments, Roles and Employees into current Database
 async function addDepartment() {
@@ -216,21 +227,22 @@ async function addEmployee() {
       choices: [...roleExist, "RETURN"]
     },{ 
       name: 'manager_id', type: 'list', 
-      message: 'Please chose one of the existing department to add this role, chose RETURN to add new department if needed.', 
-      choices: [...employeeExist, "RETURN"]
+      message: 'Please chose one of the existing employee to be his/her manager, chose RETURN to add new employee if needed.', 
+      choices: [...employeeExist, "Null", "RETURN"]
     }
     ]);
-    // Go back to create role or employee as manager from here.
-    if ( answer.role_id === "RETURN" || answer.manager_id === "RETURN"){
-      start();
-    }
+    // Conditions for manager input 
+    var managerIdValue;
+    if ( answer.manager_id !== "Null"){ managerIdValue = 1 + employeeExist.indexOf(answer.manager_id)}
+    else { managerIdValue = null }
+    if ( answer.role_id === "RETURN" || answer.manager_id === "RETURN"){ start() }
     else{connection.query(
       'INSERT INTO employee SET ?', 
       { 
         first_name: answer.fullName.split(" ")[0],
         last_name: answer.fullName.split(" ")[1],
         role_id: 1 + roleExist.indexOf(answer.role_id),
-        manager_id: 1 + employeeExist.indexOf(answer.manager_id)
+        manager_id: managerIdValue
       },
       (err) => {
         if (err) throw err;
@@ -242,32 +254,133 @@ async function addEmployee() {
   else{console.log('\nEmployees all set already!\n'.red);start()}
 }
 
+// Update current employee details
+async function updateEmployeeManager() {
+  if ( employeeChoices.length !== employeeOptions.length ){
+    employeeChoices = await getEmployeeRest();
+    var roleExist = rolesOptions.filter((item) => !roleChoices.includes(item));
+    var employeeExist = employeeOptions.filter((item) => !employeeChoices.includes(item));
+    let answer = await inquirer.prompt([{ 
+      name: 'fullName', type: 'list', 
+      message: 'Which Employee to Update?', 
+      choices: employeeExist
+    },{ 
+      name: 'manager_id', type: 'list', 
+      message: 'Please chose one of the existing employee to be his/her manager, chose RETURN to add new employee if needed.', 
+      choices: [...employeeExist, "Null", "RETURN"]
+    }
+    ]);
+    // Conditions for manager input 
+    var managerIdValue;
+    if ( answer.manager_id !== "Null"){ managerIdValue = 1 + employeeExist.indexOf(answer.manager_id)}
+    else { managerIdValue = null }
+    if ( answer.manager_id === "RETURN"){ start() }
+    else{connection.query(
+      `UPDATE employee SET manager_id = ${managerIdValue}
+      WHERE CONCAT(first_name, ' ', last_name) = "${answer.fullName}"`, 
+      (err) => {
+        if (err) throw err;
+        console.log('\nEmployee Manager was updated successfully!\n'.green);
+        start();
+      }
+    )}
+  }
+  else{console.log('\nEmployee not found, please add at least one before updating!\n'.red);start()}
+}
 
+async function updateEmployeeRole() {
+  if ( employeeChoices.length !== employeeOptions.length ){
+    employeeChoices = await getEmployeeRest();
+    var roleExist = rolesOptions.filter((item) => !roleChoices.includes(item));
+    var employeeExist = employeeOptions.filter((item) => !employeeChoices.includes(item));
+    let answer = await inquirer.prompt([{ 
+      name: 'fullName', type: 'list', 
+      message: 'Which Employee to Update?', 
+      choices: employeeExist
+    },{ 
+      name: 'role_id', type: 'list', 
+      message: 'Which role for this employee? Chose RETURN to add new role if needed.', 
+      choices: [...roleExist, "RETURN"]
+    }
+    ]);
+    // Conditions for role input 
+    if ( answer.role_id === "RETURN" ){ start() }
+    else{connection.query(
+      `UPDATE employee SET role_id = ${1 + roleExist.indexOf(answer.role_id)}
+      WHERE CONCAT(first_name, ' ', last_name) = "${answer.fullName}"`, 
+      (err) => {
+        if (err) throw err;
+        console.log('\nEmployee Role was updated successfully!\n'.green);
+        start();
+      }
+    )}
+  }
+  else{console.log('\nEmployee not found, please add at least one before updating!\n'.red);start()}
+}
 
+// Functions to delete data from database
+async function deleteEmployee() {
+  if ( employeeChoices.length !== employeeOptions.length ){
+    employeeChoices = await getEmployeeRest();
+    var employeeExist = employeeOptions.filter((item) => !employeeChoices.includes(item));
+    let answer = await inquirer.prompt([{ 
+      name: 'fullName', type: 'list', 
+      message: 'Which Employee to Delete?', 
+      choices: employeeExist
+    }]);
+    // If the seleted employee is a manager of other employees, need to set the manager_id of those employees to null,
+    // before deleting seleted employee.
+    var managerIdValue = 1 + employeeExist.indexOf(answer.fullName);
+    var checkEmployee = await isManager(answer.fullName);
+    // Actions for is Manager = true
+    if( checkEmployee ){
+      // To set the manager_id of those employees to null
+      connection.query(
+        `UPDATE employee
+        SET manager_id = null
+        WHERE employee.manager_id = ${managerIdValue};`, 
+        (err) => { if (err) throw err}
+      );
+      // Deleting seleted employee
+      connection.query(
+        `DELETE FROM employee WHERE CONCAT(first_name, ' ', last_name) = "${answer.fullName}";`, 
+        (err) => {
+          if (err) throw err;
+          console.log('\nThe chosen Employee (Is a Manager) has been Deleted successfully!\n'.green);
+          start();
+        }
+      )
+    }
+    // Actions for is Manager = false
+    else {
+      connection.query(
+        `DELETE FROM employee WHERE CONCAT(first_name, ' ', last_name) = "${answer.fullName}"`, 
+        (err) => {
+          if (err) throw err;
+          console.log('\nThe chosen Employee (Not a Manager) has been Deleted successfully!\n'.green);
+          start();
+        }
+      )
+    }
+  }
+  else{console.log('\nEmployee not found, please add at least one before deleting!\n'.red);start()}
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// Functions for resolving foreign key constraint issue
+function isManager(person){
+  return new Promise((resolve,reject) => {
+    connection.query(`
+      SELECT T1.id, CONCAT(T2.first_name, ' ', T2.last_name) AS manager 
+      FROM employee T1 
+      LEFT JOIN employee T2 ON T1.manager_id = T2.id`, (err, res) => {
+        if (err) reject(err);
+        for (let i=0; i<res.length; i++){ if ( person === res[i].manager){ return resolve(true) } }
+        return resolve(false) 
+      }
+    )
+  });
+}
 
 start();
 
 
-// validate(value) {
-//   if (isNaN(value) === false) {
-//     if(value < 1000000){return true}
-//     return false;
-//   }
-//   return false;
-// }
